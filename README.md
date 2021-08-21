@@ -1,0 +1,2 @@
+# nglogger
+Non Greedy logger
