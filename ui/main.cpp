@@ -53,8 +53,7 @@ std::string get_string_from_when(uint64_t when)
     return get_string_from_date(dt);
 }
 
-int main(int argc, const char* argv[]) {
-    std::
+int main(int /* argc*/, const char*/* argv*/[]) {
     size_t max_items = 1024*1024;
     std::string fulllog = "";
 
@@ -65,8 +64,7 @@ int main(int argc, const char* argv[]) {
 
     int selectedlogentry = 0;
     std::vector<std::string> entries;
-    std::vector<loggeditem> entries_full;
-    int tab_index = 0;
+    std::vector<loggeditem> entries_full;    
     std::vector<std::string> tab_entries;
     std::string path = "/var/xprojector/logs";
     for (const auto & entry : fs::directory_iterator(path))
@@ -136,7 +134,7 @@ int main(int argc, const char* argv[]) {
         return hflow(paragraph(fulllog));
     }) ;
     container = ResizableSplitBottom(fullogrenderer, container, &bottom_size);
-http://deusexmachinae.se/ngloggerui.png
+
     auto renderer =
          Renderer(container, [&] { return container->Render() | border; });
 
@@ -155,7 +153,7 @@ http://deusexmachinae.se/ngloggerui.png
             foundlastime = false;
 
             bool lastentryselected = false;
-            if(selectedlogentry == entries.size() -1)
+            if(selectedlogentry == (int) entries.size() -1)
             {
                 lastentryselected = true;
             }
@@ -179,7 +177,7 @@ http://deusexmachinae.se/ngloggerui.png
                 entries.erase(entries.begin(), entries.begin()+ removeitems);
                 entries_full.erase(entries_full.begin(), entries_full.begin()+ removeitems);
 
-                if(selectedlogentry>removeitems)
+                if(selectedlogentry>(int)removeitems)
                     selectedlogentry -= removeitems;
                 else
                     lastentryselected = true;

@@ -34,7 +34,7 @@ enum class loggedrowtypeuserreserved
 
 struct loggedrowtype
 {
-    loggedrowtypebase type: 1;
+    unsigned /*loggedrowtypebase*/ type: 1;
     unsigned usertype:15;
 };
 
@@ -47,7 +47,7 @@ enum class loggededrowstatusbase
 
 struct loggedrowstatus
 {
-    loggededrowstatusbase status: 2;
+    unsigned /*loggededrowstatusbase*/ status: 2;
     unsigned userstatus: 30;
 };
 
@@ -60,15 +60,15 @@ struct loggedrowheader
     uint32_t length = 0;
     uint16_t parts = 1;
     uint64_t when = 0;
-    loggedrowtype type = {loggedrowtypebase::TEXT,0};
-    loggedrowstatus status = {loggededrowstatusbase::INFO,0};
+    loggedrowtype type = {(unsigned)loggedrowtypebase::TEXT,0};
+    loggedrowstatus status = {(unsigned)loggededrowstatusbase::INFO,0};
 
     loggedrowheader()
     {
 //        type= {loggedrowtypebase::TEXT,0};
     }
 
-    static const size_t size()
+    static constexpr size_t size()
     {
         return sizeof(loggedrowheader);
     }
@@ -79,7 +79,7 @@ struct loggedrow
     loggedrowheader header;
     char payload[NGLOGGER_PAYLOAD_SIZE];
 
-    static const size_t size()
+    static constexpr size_t size()
     {
         return sizeof(loggedrow);
     }

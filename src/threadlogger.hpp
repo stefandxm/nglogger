@@ -86,20 +86,26 @@ public:
 
     void info(const string &message)
     {
-        log( {loggedrowtypebase::TEXT,0},
-             {loggededrowstatusbase::INFO,0},
+        loggedrowtype type = {(unsigned)loggedrowtypebase::TEXT,0};
+        loggedrowstatus status = {(unsigned)loggededrowstatusbase::INFO,0};
+        log( type,
+             status,
              message);
     }
     void warning(const string &message)
     {
-        log( {loggedrowtypebase::TEXT,0},
-             {loggededrowstatusbase::WARNING,0},
+        loggedrowtype type = {(unsigned)loggedrowtypebase::TEXT,0};
+        loggedrowstatus status = {(unsigned)loggededrowstatusbase::WARNING,0};
+        log( type,
+             status,
              message);
     }
     void error(const string &message)
     {
-        log( {loggedrowtypebase::TEXT,0},
-             {loggededrowstatusbase::ERROR,0},
+        loggedrowtype type = {(unsigned)loggedrowtypebase::TEXT,0};
+        loggedrowstatus status = {(unsigned)loggededrowstatusbase::ERROR,0};
+        log( type,
+             status,
              message);
     }
 

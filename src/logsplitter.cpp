@@ -70,11 +70,11 @@ bool logsplitter::read_row(loggedrowheader &header,
 
     for(int i = 1; i < header.parts; i++ )
     {
-        while(!io.read_nextrow(row) && (nr_retries--) >0)
+        while(!io.read_nextrow(row) && (nr_retries--) > 1)
         {
             std::this_thread::sleep_for( std::chrono::milliseconds(waitms) );
         }
-        if(nr_retries == -1)
+        if(nr_retries == 0)
         {
             checksumok = false;
             return true;
