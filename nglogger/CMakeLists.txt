@@ -12,4 +12,4 @@ add_library(nglogger
 )
 
 install (TARGETS nglogger DESTINATION lib)
-install (DIRECTORY "${PROJECT_SOURCE_DIR}" DESTINATION "include" FILES_MATCHING PATTERN "*.hpp")
+install (DIRECTORY "${PROJECT_SOURCE_DIR}/src" DESTINATION "include/nglogger" FILES_MATCHING PATTERN "*.hpp")
