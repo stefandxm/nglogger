@@ -10,3 +10,6 @@ add_library(nglogger
     threadlogger.cpp
     multithreadlogger.cpp
 )
+
+install (TARGETS nglogger DESTINATION lib)
+install (DIRECTORY "${PROJECT_SOURCE_DIR}" DESTINATION "include" FILES_MATCHING PATTERN "*.hpp")
