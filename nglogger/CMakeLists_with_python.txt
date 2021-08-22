@@ -1,5 +1,5 @@
 
-add_library(Logging
+add_library(ngloggerlib
     nglogger.cpp
     nglogger.cpp
     logfilemmap.cpp
@@ -7,8 +7,6 @@ add_library(Logging
     logsplitter.cpp
     threadlogger.cpp
     multithreadlogger.cpp
-
-    Logger.cpp
 )
 
 
@@ -49,14 +47,6 @@ PYTHON_ADD_MODULE(nglogger
 set_property(TARGET nglogger PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 
-target_link_libraries( nglogger Logging ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} )
+target_link_libraries( nglogger nglogger_lib ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} )
 target_include_directories(nglogger PRIVATE ${PYTHON_INCLUDE_DIRS})
 
-#add_subdirectory(../ThirdParty/ftxui/FTXUI)
-
-add_executable(ngloggerui
-    ngloggerui.cpp
-)
-target_link_libraries(ngloggerui Logging
-    ftxui-component.a ftxui-dom.a ftxui-screen.a
-    )
