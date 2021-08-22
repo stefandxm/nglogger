@@ -1,0 +1,62 @@
+
+add_library(Logging
+    nglogger.cpp
+    nglogger.cpp
+    logfilemmap.cpp
+    logfile.cpp
+    logsplitter.cpp
+    threadlogger.cpp
+    multithreadlogger.cpp
+
+    Logger.cpp
+)
+
+
+set_property(TARGET Logging PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+find_package(PythonLibs 3.9 REQUIRED)
+# set(CMAKE_SHARED_MODULE_PREFIX "")
+
+FIND_PACKAGE(PythonInterp)
+FIND_PACKAGE(PythonInterp 3)
+FIND_PACKAGE(PythonLibs 3 REQUIRED)
+
+
+find_package(
+    Boost 1.75
+    COMPONENTS
+        locale
+        chrono
+        timer
+        coroutine
+        filesystem
+        regex
+        system
+        thread
+        program_options
+        python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+    REQUIRED
+)
+
+message(STATUS "PYTHON_LIBRARIES = ${PYTHON_LIBRARIES}")
+message(STATUS "PYTHON_EXECUTABLE = ${PYTHON_EXECUTABLE}")
+message(STATUS "PYTHON_INCLUDE_DIRS = ${PYTHON_INCLUDE_DIRS}")
+
+PYTHON_ADD_MODULE(nglogger
+    pythonwrapper.cpp
+)
+
+set_property(TARGET nglogger PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+
+target_link_libraries( nglogger Logging ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} )
+target_include_directories(nglogger PRIVATE ${PYTHON_INCLUDE_DIRS})
+
+#add_subdirectory(../ThirdParty/ftxui/FTXUI)
+
+add_executable(ngloggerui
+    ngloggerui.cpp
+)
+target_link_libraries(ngloggerui Logging
+    ftxui-component.a ftxui-dom.a ftxui-screen.a
+    )
