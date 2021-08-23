@@ -33,7 +33,7 @@ using namespace std;
 struct loggeditem
 {
     nglogger::loggedrowheader header;
-    std::string payload = "";
+    string payload = "";
     bool checksumok = false;
 };
 
@@ -55,62 +55,70 @@ std::string get_string_from_when(uint64_t when)
 }
 
 
-int inner_main(int /* argc*/, const char*/* argv*/[]) {
+int inner_main(int argc, const char* argv[]) {
     size_t max_items = 1024;
-    std::string fulllog = "";
+    string fulllog = "";
 
     std::mutex entriesmutex;
-    std::unique_ptr<nglogger::logfilemmap> ngfile;
-    std::unique_ptr<nglogger::logsplitter> ngsplitted;
+    vector<unique_ptr<nglogger::logfilemmap>> ngfiles;
+    vector<unique_ptr<nglogger::logsplitter>> ngsplitteds;
 
 
     int selectedlogentry = 0;
-    std::vector<std::string> entries;
-    std::vector<loggeditem> entries_full;    
-    std::vector<std::string> tab_entries;
-    std::string path = "/var/xprojector/logs";
-    cout << "Retrieving log files" << endl;
-    for (const auto & entry : fs::directory_iterator(path))
-    {
-       if(entry.is_directory())
-           continue;
-
-        cout << "Adding " << entry.path().filename() << endl;
-        tab_entries.push_back( entry.path().filename());
-    }    
-    if(tab_entries.size() == 0ull)
-    {
-        cout << "No log files found in " << path << endl;
-        return 1;
-    }
-    std::sort(tab_entries.begin(), tab_entries.end());
-
-    auto screen = ScreenInteractive::Fullscreen();
-
-    MenuOption optionlogs;
     int selectedlog=0;
     volatile bool logchanged = false;
     volatile bool logentrychanged = false;
 
+    vector<string> log_entries_title;
+    vector<string> log_filenames;
+    vector<string> logfiles;
+
+    vector< vector<string> > log_entries_titles;
+    vector< vector<unique_ptr<loggeditem>>> log_entries_full;
+
+    string basepath;
+
+    if(argc < 2)
+    {
+        cerr << "Usage: nglogger <logfiles-path>" << endl;
+        return 1;
+    }
+    basepath = argv[1];
+
+    //cout << "Retrieving log files from " << basepath << endl;
+    for (const auto & entry : fs::directory_iterator(basepath))
+    {
+       if(entry.is_directory())
+           continue;
+
+        //cout << "Adding " << entry.path().filename() << endl;
+        log_filenames.push_back( entry.path().filename());
+    }    
+    if(log_filenames.size() == 0ull)
+    {
+        //cout << "No log files found in " << basepath << endl;
+        return 1;
+    }
+    std::sort(log_filenames.begin(), log_filenames.end());
+
+    for(const string &fn: log_filenames)
+    {
+        string filename = basepath + "/" + fn;
+        //cout << "Loading " << filename << endl;
+        ngfiles.emplace_back(make_unique<nglogger::logfilemmap>(filename));
+        ngsplitteds.emplace_back(make_unique<nglogger::logsplitter>(*ngfiles.back()));
+        logfiles.push_back(fn);
+        log_entries_titles.emplace_back();
+        log_entries_full.emplace_back();
+    }
+
+    auto screen = ScreenInteractive::Fullscreen();
+
+    MenuOption optionlogs;
+
     optionlogs.on_change= [&]{
         {            
             std::unique_lock<std::mutex> lockguard(entriesmutex);
-
-            selectedlogentry=0;
-            entries.clear();
-            entries_full.clear();
-            if(ngsplitted != nullptr)
-                ngsplitted = nullptr;
-            if(ngfile != nullptr)
-                ngfile = nullptr;
-
-            std::string filename= tab_entries[selectedlog];
-            std::string fullpath = path + "/" + filename;
-            if(ngsplitted != nullptr)
-                ngsplitted = nullptr;
-
-            ngfile = std::make_unique<nglogger::logfilemmap> ( fullpath );
-            ngsplitted = std::make_unique<nglogger::logsplitter> (*ngfile);
             logchanged = true;
         }
     };
@@ -119,27 +127,21 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
     optionlog.on_change = [&]{        
         {
             std::unique_lock<std::mutex> lockguard(entriesmutex);
-            if(selectedlogentry < 0 || selectedlogentry >= entries_full.size())
-            {
-                fulllog="";
-                return;
-            }
-            std::string newlog = entries_full[ selectedlogentry ].payload;
-            fulllog = newlog;
+            logentrychanged = true;
         }
     };
 
 
-    auto menulog =  Menu(&entries, &selectedlogentry, &optionlog);
+    auto menulog =  Menu(&log_entries_title, &selectedlogentry, &optionlog);
     auto menulogrender = Renderer( menulog,
         [&] {
                 return menulog->Render() | frame | size(HEIGHT,LESS_THAN, 50); //|border;
             }
     );
-    auto menulogs = Menu(&tab_entries, &selectedlog, &optionlogs);
+    auto menulogs = Menu(&logfiles, &selectedlog, &optionlogs);
 
 
-    int left_size = 20;
+    int left_size = 70;
     int bottom_size = 10;
     auto container = menulogrender;
     container = ResizableSplitLeft(menulogs , container, &left_size);
@@ -150,12 +152,17 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
 
     container = ResizableSplitBottom(fullogrenderer, container, &bottom_size);
 
+
     auto renderer =
          Renderer(container, [&] { return container->Render() | border; });
 
-    selectedlogentry = 0;//entries.size()-1;    
-
+    selectedlogentry = 0;
+    logchanged=true;
+    logentrychanged=true;
     bool refresh_ui_continue = true;
+
+    string errormsg = "";
+
     std::thread refresh_ui([&] {
         bool foundlastime = false;
         while (refresh_ui_continue)
@@ -163,7 +170,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             using namespace std::chrono_literals;
             if(!foundlastime)
             {
-                std::this_thread::sleep_for(1s);
+                std::this_thread::sleep_for(200ms);
             }
             else
             {
@@ -173,41 +180,65 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             std::unique_lock<std::mutex> lockguard(entriesmutex);
             foundlastime = false;
 
-            bool lastentryselected = false;
-            if(selectedlogentry >= (int) entries.size() -1)
+            bool lastentryselected = true;
+
+            if(logchanged)
             {
-                lastentryselected = true;
+                selectedlogentry=0;
+                log_entries_title.clear();
+
+                logchanged = false;
+                if(selectedlog <0 || selectedlog>= log_entries_titles.size())
+                {
+                    throw runtime_error( "wtf selected log = " + to_string(selectedlog) );
+                    logchanged = false;
+                    continue;
+                }
+
+                log_entries_title.clear();
+                for(auto &t : log_entries_titles[selectedlog] )
+                {
+                    log_entries_title.push_back(t);
+                }
+            }
+            else
+            {
+                if(selectedlogentry < (int) log_entries_title.size() -1)
+                {
+                    lastentryselected = false;
+                }
             }
 
-            if(ngsplitted!=nullptr )
+            foundlastime = false;
+            for(size_t splitindex = 0; splitindex < ngsplitteds.size(); splitindex++)
             {
-                loggeditem item;
-                foundlastime = true;
-                for(int i = 0; i< 500 && foundlastime; i++)
+                auto &splitter = ngsplitteds[splitindex];
+
+                for(int i = 0; i< max_items; i++)
                 {
-                    foundlastime = ngsplitted->read_row(item.header, item.payload, item.checksumok);
-                    if(foundlastime)
+                    unique_ptr<loggeditem> item = make_unique<loggeditem>();
+                    bool found = splitter->read_row(item->header, item->payload, item->checksumok);
+                    if(!found)
+                        break;
+
+                    foundlastime = true;
+                    if(item->checksumok)
                     {
-                        if(item.checksumok)
-                        {
-                            entries.push_back( get_string_from_when(item.header.when) + ": " + item.payload.substr(0, 50));
-                            entries_full.push_back(item);
-                        }
+                        string title = get_string_from_when(item->header.when) + ": " + item->payload.substr(0, 50);
+                        if(selectedlog == splitindex)
+                            log_entries_title.push_back( title );
+
+                        log_entries_titles[splitindex].push_back(title);
+                        log_entries_full[splitindex].push_back(move(item));
+                        logfiles[splitindex] = log_filenames[splitindex] +  " - " + title;
                     }
                 }
-
-                if(logchanged )
-                {
-                    lastentryselected = true;
-                    logchanged = false;
-                }
             }
-
-            if(entries.size() > max_items)
+            if(log_entries_title.size() > max_items)
             {
-                size_t removeitems=(entries.size()-max_items);
-                entries.erase(entries.begin(), entries.begin()+ removeitems);
-                entries_full.erase(entries_full.begin(), entries_full.begin()+ removeitems);
+                size_t removeitems=(log_entries_title.size()-max_items);
+                log_entries_title.erase(log_entries_title.begin(), log_entries_title.begin()+ removeitems);
+
 
                 if(selectedlogentry>(int)removeitems)
                     selectedlogentry -= removeitems;
@@ -215,9 +246,33 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
                     lastentryselected = true;
             }
 
-            if(lastentryselected)
-                selectedlogentry = entries.size()-1;
+            for(auto &v: log_entries_full)
+            {
+                if(v.size() < max_items)
+                    continue;
+                size_t removeitems=(v.size()-max_items);
+                v.erase(v.begin(), v.begin() + removeitems);
+            }
+            for(auto &v: log_entries_titles)
+            {
+                if(v.size() < max_items)
+                    continue;
+                size_t removeitems=(v.size()-max_items);
+                v.erase(v.begin(), v.begin() + removeitems);
+            }
 
+            if(lastentryselected)
+                selectedlogentry = log_entries_title.size()-1;
+            if(log_entries_full[selectedlog].size() > selectedlogentry)
+            {
+                auto &item = log_entries_full[selectedlog][selectedlogentry];
+                fulllog = get_string_from_when(item->header.when) + " \n ";
+                fulllog += item->payload;
+            }
+            else
+            {
+                fulllog="??";
+            }
             screen.PostEvent(Event::Custom);
         }
     });
@@ -227,13 +282,14 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
     refresh_ui.join();
 
 
+    cerr << errormsg << endl;
     return 0;
 }
 
 int main(int argc, const char* argv[]) {
     try
     {
-        inner_main(argc, argv);
+        return inner_main(argc, argv);
     }
     catch(std::exception &ex)
     {
