@@ -62,6 +62,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
     std::unique_ptr<nglogger::logsplitter> ngsplitted;
 
     auto screen = ScreenInteractive::Fullscreen();
+    //auto screen = ScreenInteractive(0, 0, 2, false);
 
     int selectedlogentry = 0;
     std::vector<std::string> entries;
@@ -80,6 +81,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
 
     MenuOption optionlogs;
     int selectedlog=0;
+    bool logchanged =false;
 
     optionlogs.on_change= [&]{
         {            
@@ -106,6 +108,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
 
             ngfile = std::make_unique<nglogger::logfilemmap> ( fullpath );
             ngsplitted = std::make_unique<nglogger::logsplitter> (*ngfile);
+            logchanged = true;
         }
     };
 
@@ -134,7 +137,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             fulllog = newlog;
         }
 
-        screen.PostEvent(Event::Custom);
+        //screen.PostEvent(Event::Custom);
     };
 
 
@@ -158,12 +161,13 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
     auto fullogrenderer = Renderer([&]{
         return hflow(paragraph(fulllog));
     }) ;
+
     container = ResizableSplitBottom(fullogrenderer, container, &bottom_size);
 
     auto renderer =
          Renderer(container, [&] { return container->Render() | border; });
 
-    selectedlogentry = 0;//entries.size()-1;
+    selectedlogentry = 0;//entries.size()-1;    
 
     bool refresh_ui_continue = true;
       std::thread refresh_ui([&] {
@@ -179,7 +183,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             }
             else
             {
-                std::this_thread::sleep_for(10ms);
+                std::this_thread::sleep_for(50ms);
             }
 
 //            screen.PostEvent(Event::Custom);
@@ -204,7 +208,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
 //                    entries_full.push_back(item);
 //                }
                 foundlastime = true;
-                for(int i = 0; i< 100 && foundlastime; i++)
+                for(int i = 0; i< 500 && foundlastime; i++)
                 {
                     foundlastime = ngsplitted->read_row(item.header, item.payload, item.checksumok);
                     if(foundlastime)
@@ -215,6 +219,12 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
                             entries_full.push_back(item);
                         }
                     }
+                }
+
+                if(logchanged )
+                {
+                    lastentryselected = true;
+                    logchanged = false;
                 }
                 //entries.push_back( std::to_string(rand()) + " " +  std::to_string(lastentryselected)+  " "  + std::to_string(selectedlogentry)  + " / " + std::to_string(entries.size()) );
             }
@@ -232,7 +242,7 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             }
 
             if(lastentryselected)
-                selectedlogentry = entries.size();
+                selectedlogentry = entries.size()-1;
 
             screen.PostEvent(Event::Custom);
         }
