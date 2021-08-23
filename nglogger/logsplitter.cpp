@@ -52,16 +52,28 @@ bool logsplitter::read_row(loggedrowheader &header,
     if(!io.read_nextrow(row))
         return false;
 
+
+
     uint64_t calcedhash = calculate_hash(row);
     checksumok = (calcedhash == row.header.checksum);
 
     memcpy(&header, &row.header, loggedrowheader::size());
-    payload = string(row.payload, strnlen(row.payload, NGLOGGER_PAYLOAD_SIZE));
+    size_t len = strnlen(row.payload, NGLOGGER_PAYLOAD_SIZE);
+    if(len == NGLOGGER_PAYLOAD_SIZE)
+    {
+        payload = "";
+    }
+    else
+    {
+        payload = string(row.payload, len);
+    }
+
 
     if(row.header.parent_rowid == 0 && row.header.parts == 1)
-    {
+    {        
         return true;
     }
+
     if(row.header.parent_rowid != 0 && row.header.parts != 1)
     {
         checksumok = false;

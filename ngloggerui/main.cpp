@@ -53,9 +53,10 @@ std::string get_string_from_when(uint64_t when)
     return get_string_from_date(dt);
 }
 
-int main(int /* argc*/, const char*/* argv*/[]) {
+int inner_main(int /* argc*/, const char*/* argv*/[]) {
     size_t max_items = 1024*1024;
     std::string fulllog = "";
+    std::mutex entriesmutex;
 
     std::unique_ptr<nglogger::logfilemmap> ngfile;
     std::unique_ptr<nglogger::logsplitter> ngsplitted;
@@ -73,31 +74,46 @@ int main(int /* argc*/, const char*/* argv*/[]) {
            continue;
 
       tab_entries.push_back( entry.path().filename());
-    }
+    }    
 
     std::sort(tab_entries.begin(), tab_entries.end());
 
     MenuOption optionlogs;
-    int selectedlog;
+    int selectedlog=0;
 
     optionlogs.on_change= [&]{
-        std::string filename= tab_entries[selectedlog];
-        std::string fullpath = path + "/" + filename;
-        if(ngsplitted != nullptr)
-            ngsplitted = nullptr;
+        {            
+            std::unique_lock<std::mutex> lockguard(entriesmutex);
 
-        selectedlogentry=0;
-        entries.clear();
-        entries_full.clear();
-        ngfile = std::make_unique<nglogger::logfilemmap> ( fullpath );
-        ngsplitted = std::make_unique<nglogger::logsplitter> (*ngfile);
+            selectedlogentry=0;
+            entries.clear();
+            entries_full.clear();
+
+
+            if(selectedlogentry<0 || selectedlogentry>=tab_entries.size())
+            {
+                if(ngsplitted != nullptr)
+                    ngsplitted = nullptr;
+                if(ngfile != nullptr)
+                    ngfile = nullptr;
+                return;
+            }
+
+            std::string filename= tab_entries[selectedlog];
+            std::string fullpath = path + "/" + filename;
+            if(ngsplitted != nullptr)
+                ngsplitted = nullptr;
+
+            ngfile = std::make_unique<nglogger::logfilemmap> ( fullpath );
+            ngsplitted = std::make_unique<nglogger::logsplitter> (*ngfile);
+        }
     };
 
 
     //for( int i = 0; i < 100; i++)
 //      entries.push_back("entry extra " + std::to_string(i));
     MenuOption optionlog;
-    optionlog.on_change = [&]{
+    optionlog.on_change = [&]{        
 //        std::string newlog = "";
 //        for(int i = 0; i < 10; i++)
 //        {
@@ -106,8 +122,17 @@ int main(int /* argc*/, const char*/* argv*/[]) {
 //        newlog += " ";
 //        newlog += newlog;
 //        fulllog = newlog;
-        std::string newlog = entries_full[ selectedlogentry ].payload;
-        fulllog = newlog;
+
+        {
+            std::unique_lock<std::mutex> lockguard(entriesmutex);
+            if(selectedlogentry < 0 || selectedlogentry >= entries_full.size())
+            {
+                fulllog="";
+                return;
+            }
+            std::string newlog = entries_full[ selectedlogentry ].payload;
+            fulllog = newlog;
+        }
 
         screen.PostEvent(Event::Custom);
     };
@@ -138,10 +163,12 @@ int main(int /* argc*/, const char*/* argv*/[]) {
     auto renderer =
          Renderer(container, [&] { return container->Render() | border; });
 
-    selectedlogentry = entries.size()-1;
+    selectedlogentry = 0;//entries.size()-1;
 
     bool refresh_ui_continue = true;
       std::thread refresh_ui([&] {
+
+
 
           bool foundlastime = false;
         while (refresh_ui_continue) {
@@ -150,23 +177,44 @@ int main(int /* argc*/, const char*/* argv*/[]) {
             {
                 std::this_thread::sleep_for(1s);
             }
+            else
+            {
+                std::this_thread::sleep_for(10ms);
+            }
+
+//            screen.PostEvent(Event::Custom);
+//            continue;
+            std::unique_lock<std::mutex> lockguard(entriesmutex);
             foundlastime = false;
 
             bool lastentryselected = false;
-            if(selectedlogentry == (int) entries.size() -1)
+            if(selectedlogentry >= (int) entries.size() -1)
             {
                 lastentryselected = true;
             }
 
             if(ngsplitted!=nullptr )
             {
-                foundlastime = false;
                 loggeditem item;
-                if(ngsplitted->read_row(item.header, item.payload, item.checksumok))
+//                if(true && ngsplitted->read_row(item.header, item.payload, item.checksumok))
+//                {
+//                    item.header.when = 0;
+//                    item.payload ="dummy";
+//                    entries.push_back( get_string_from_when(item.header.when) + ": " + item.payload);
+//                    entries_full.push_back(item);
+//                }
+                foundlastime = true;
+                for(int i = 0; i< 100 && foundlastime; i++)
                 {
-                    entries.push_back( get_string_from_when(item.header.when) + ": " + item.payload);
-                    entries_full.push_back(item);
-                    foundlastime = true;
+                    foundlastime = ngsplitted->read_row(item.header, item.payload, item.checksumok);
+                    if(foundlastime)
+                    {
+                        if(item.checksumok)
+                        {
+                            entries.push_back( get_string_from_when(item.header.when) + ": " + item.payload.substr(0, 50));
+                            entries_full.push_back(item);
+                        }
+                    }
                 }
                 //entries.push_back( std::to_string(rand()) + " " +  std::to_string(lastentryselected)+  " "  + std::to_string(selectedlogentry)  + " / " + std::to_string(entries.size()) );
             }
@@ -196,6 +244,21 @@ int main(int /* argc*/, const char*/* argv*/[]) {
 
 
     return 0;
+}
+
+int main(int argc, const char* argv[]) {
+    try
+    {
+        inner_main(argc, argv);
+    }
+    catch(std::exception &ex)
+    {
+        std::cerr << ex.what() << std::endl;
+    }
+    catch(...)
+    {
+        std::cerr << "unknown exception" << std::endl;
+    }
 }
 
 #ifdef oldtest
