@@ -28,6 +28,7 @@ namespace fs = std::filesystem;
 #include "../nglogger/nglogger.hpp"
 
 using namespace ftxui;
+using namespace std;
 
 struct loggeditem
 {
@@ -53,35 +54,43 @@ std::string get_string_from_when(uint64_t when)
     return get_string_from_date(dt);
 }
 
-int inner_main(int /* argc*/, const char*/* argv*/[]) {
-    size_t max_items = 1024*1024;
-    std::string fulllog = "";
-    std::mutex entriesmutex;
 
+int inner_main(int /* argc*/, const char*/* argv*/[]) {
+    size_t max_items = 1024;
+    std::string fulllog = "";
+
+    std::mutex entriesmutex;
     std::unique_ptr<nglogger::logfilemmap> ngfile;
     std::unique_ptr<nglogger::logsplitter> ngsplitted;
 
-    auto screen = ScreenInteractive::Fullscreen();
-    //auto screen = ScreenInteractive(0, 0, 2, false);
 
     int selectedlogentry = 0;
     std::vector<std::string> entries;
     std::vector<loggeditem> entries_full;    
     std::vector<std::string> tab_entries;
     std::string path = "/var/xprojector/logs";
+    cout << "Retrieving log files" << endl;
     for (const auto & entry : fs::directory_iterator(path))
     {
        if(entry.is_directory())
            continue;
 
-      tab_entries.push_back( entry.path().filename());
+        cout << "Adding " << entry.path().filename() << endl;
+        tab_entries.push_back( entry.path().filename());
     }    
-
+    if(tab_entries.size() == 0ull)
+    {
+        cout << "No log files found in " << path << endl;
+        return 1;
+    }
     std::sort(tab_entries.begin(), tab_entries.end());
+
+    auto screen = ScreenInteractive::Fullscreen();
 
     MenuOption optionlogs;
     int selectedlog=0;
-    bool logchanged =false;
+    volatile bool logchanged = false;
+    volatile bool logentrychanged = false;
 
     optionlogs.on_change= [&]{
         {            
@@ -90,16 +99,10 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             selectedlogentry=0;
             entries.clear();
             entries_full.clear();
-
-
-            if(selectedlogentry<0 || selectedlogentry>=tab_entries.size())
-            {
-                if(ngsplitted != nullptr)
-                    ngsplitted = nullptr;
-                if(ngfile != nullptr)
-                    ngfile = nullptr;
-                return;
-            }
+            if(ngsplitted != nullptr)
+                ngsplitted = nullptr;
+            if(ngfile != nullptr)
+                ngfile = nullptr;
 
             std::string filename= tab_entries[selectedlog];
             std::string fullpath = path + "/" + filename;
@@ -112,20 +115,8 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
         }
     };
 
-
-    //for( int i = 0; i < 100; i++)
-//      entries.push_back("entry extra " + std::to_string(i));
     MenuOption optionlog;
     optionlog.on_change = [&]{        
-//        std::string newlog = "";
-//        for(int i = 0; i < 10; i++)
-//        {
-//            newlog += std::to_string( rand() );
-//        }
-//        newlog += " ";
-//        newlog += newlog;
-//        fulllog = newlog;
-
         {
             std::unique_lock<std::mutex> lockguard(entriesmutex);
             if(selectedlogentry < 0 || selectedlogentry >= entries_full.size())
@@ -136,8 +127,6 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             std::string newlog = entries_full[ selectedlogentry ].payload;
             fulllog = newlog;
         }
-
-        //screen.PostEvent(Event::Custom);
     };
 
 
@@ -151,12 +140,9 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
 
 
     int left_size = 20;
-    //int right_size = 20;
     int bottom_size = 10;
     auto container = menulogrender;
     container = ResizableSplitLeft(menulogs , container, &left_size);
-    //container = ResizableSplitRight(menulog, container, &right_size);
-    //container = ResizableSplitBottom(text("bottom")|center, container, &bottom_size);
 
     auto fullogrenderer = Renderer([&]{
         return hflow(paragraph(fulllog));
@@ -170,12 +156,10 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
     selectedlogentry = 0;//entries.size()-1;    
 
     bool refresh_ui_continue = true;
-      std::thread refresh_ui([&] {
-
-
-
-          bool foundlastime = false;
-        while (refresh_ui_continue) {
+    std::thread refresh_ui([&] {
+        bool foundlastime = false;
+        while (refresh_ui_continue)
+        {
             using namespace std::chrono_literals;
             if(!foundlastime)
             {
@@ -186,8 +170,6 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
                 std::this_thread::sleep_for(50ms);
             }
 
-//            screen.PostEvent(Event::Custom);
-//            continue;
             std::unique_lock<std::mutex> lockguard(entriesmutex);
             foundlastime = false;
 
@@ -200,13 +182,6 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
             if(ngsplitted!=nullptr )
             {
                 loggeditem item;
-//                if(true && ngsplitted->read_row(item.header, item.payload, item.checksumok))
-//                {
-//                    item.header.when = 0;
-//                    item.payload ="dummy";
-//                    entries.push_back( get_string_from_when(item.header.when) + ": " + item.payload);
-//                    entries_full.push_back(item);
-//                }
                 foundlastime = true;
                 for(int i = 0; i< 500 && foundlastime; i++)
                 {
@@ -226,7 +201,6 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
                     lastentryselected = true;
                     logchanged = false;
                 }
-                //entries.push_back( std::to_string(rand()) + " " +  std::to_string(lastentryselected)+  " "  + std::to_string(selectedlogentry)  + " / " + std::to_string(entries.size()) );
             }
 
             if(entries.size() > max_items)
@@ -246,11 +220,11 @@ int inner_main(int /* argc*/, const char*/* argv*/[]) {
 
             screen.PostEvent(Event::Custom);
         }
-      });
+    });
 
-      screen.Loop(renderer);
-      refresh_ui_continue = false;
-      refresh_ui.join();
+    screen.Loop(renderer);
+    refresh_ui_continue = false;
+    refresh_ui.join();
 
 
     return 0;
@@ -271,84 +245,3 @@ int main(int argc, const char* argv[]) {
     }
 }
 
-#ifdef oldtest
-int main(int argc, const char* argv[]) {
-
-    auto screen = ScreenInteractive::Fullscreen();
-
-
-    int tab_index = 0;
-    std::vector<std::string> tab_entries;
-
-    std::string path = "/var/xprojector/logs";
-    for (const auto & entry : fs::directory_iterator(path))
-    {
-       if(entry.is_directory())
-           continue;
-
-      tab_entries.push_back( entry.path().filename());
-    }
-
-    MenuOption optionlogs;
-
-    int selectedlog;
-
-    std::vector<std::string> entries = {
-       "entry 1",
-       "entry 2",
-       "entry 3",
-    };
-    for( int i = 0; i < 100; i++)
-      entries.push_back("entry extra " + std::to_string(i));
-    MenuOption optionlog;
-
-
-
-    int selectedlogentry = 0;
-
-    auto menulog = Menu(&entries, &selectedlogentry, &optionlog);
-
-    auto menulogs = Menu(&tab_entries, &selectedlog, &optionlogs);
-
-    //  auto tab_selection = Toggle(&tab_entries, &tab_index);
-    //  /*auto tab_content = Container::Tab(
-    //      {
-    //        menu
-    //      },
-    //      &tab_index);*/
-
-    auto main_container = Container::Horizontal({
-    menulogs ,
-    menulog
-    });
-
-    auto main_renderer = Renderer(main_container, [&] {
-    return vbox({
-        //hbox({
-            text("NGLOGGER") | bold | hcenter,
-        //}),
-        separator(),
-        hbox({
-            /*menulogs->Render() | yframe | yflex_shrink,
-            separator(),
-            menulog->Render() | yframe | flex*/
-            main_container->Render()  | yframe
-        }) |  yflex,
-        filler(),
-        separator(),
-        hbox({
-             text("full message here") | hcenter,
-        }),
-
-    });
-    });
-
-    while(true)
-    {
-      screen.Loop(main_renderer);
-    }
-
-    return 0;
-}
-
-#endif
