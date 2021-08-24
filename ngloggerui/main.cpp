@@ -243,7 +243,7 @@ int inner_main(int argc, const char* argv[]) {
 
                                 auto j3 = nlohmann::json::parse(str.str());
 
-                                item->payload = j3.dump(2);
+                                item->payload = j3.dump(1);
                             }
                             else
                             {
@@ -255,9 +255,9 @@ int inner_main(int argc, const char* argv[]) {
                         if(selectedlog == splitindex)
                             log_entries_title.push_back( title );
 
+                        logfiles[splitindex] = log_filenames[splitindex] +  " - " + item->payload.substr(0, 50);
                         log_entries_titles[splitindex].push_back(title);
                         log_entries_full[splitindex].push_back(move(item));
-                        logfiles[splitindex] = log_filenames[splitindex] +  " - " + title;
                     }
                 }
             }
