@@ -240,10 +240,21 @@ int inner_main(int argc, const char* argv[]) {
 
                                 stringstream str;
                                 str << oh.get();
+                                string sermsgpack = str.str();
 
-                                auto j3 = nlohmann::json::parse(str.str());
-
-                                item->payload = j3.dump(1);
+                                try
+                                {
+                                    auto j3 = nlohmann::json::parse(sermsgpack);
+                                    item->payload = j3.dump(1);
+                                }
+                                //catch(exception &ex)
+                                //{
+                                 //   item->payload = sermsgpack //string("EXCEPTION PARSING: ") + ex.what();
+                                //}
+                                catch(...)
+                                {
+                                    item->payload = sermsgpack;
+                                }
                             }
                             else
                             {
