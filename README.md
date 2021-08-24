@@ -10,7 +10,7 @@ So stay away.
 Nothing for library.
 
 UI Depends on;
-FTXUI https://github.com/ArthurSonzogni/FTXUI
-JSON for Modern C++ https://github.com/nlohmann/json#binary-formats-cbor-and-messagepack
-MessagePack C++ https://github.com/msgpack/msgpack-c 
-BOOST (For MessagePack)
+* FTXUI https://github.com/ArthurSonzogni/FTXUI
+* MessagePack C++ https://github.com/msgpack/msgpack-c 
+* BOOST https://www.boost.org/
+* JSON for Modern C++ https://github.com/nlohmann/json#binary-formats-cbor-and-messagepack
