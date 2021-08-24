@@ -77,7 +77,7 @@ struct loggedrowheader
 struct loggedrow
 {
     loggedrowheader header;
-    char payload[NGLOGGER_PAYLOAD_SIZE];
+    byte payload[NGLOGGER_PAYLOAD_SIZE];
 
     static constexpr size_t size()
     {

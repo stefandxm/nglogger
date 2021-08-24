@@ -14,9 +14,10 @@ private:
 public:
     logsplitter(logfilemmap &logfile);
 
+    void write_row(loggedrowheader &header, const byte *payload, size_t len);
     void write_row(loggedrowheader &header, const string &payload);
     bool read_row(loggedrowheader &header,
-                  string &payload,
+                  vector<byte> &payload,
                   bool &checksumok,
                   uint32_t waitms = 50,
                   uint32_t nr_retries = 100);

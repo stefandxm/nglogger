@@ -1,12 +1,10 @@
-#include <array>       // for array
-#include <chrono>      // for operator""s, chrono_literals
-#include <cmath>       // for sin
-#include <functional>  // for ref, reference_wrapper, function
-#include <memory>      // for allocator, shared_ptr, __shared_ptr_access
-#include <string>  // for string, basic_string, operator+, char_traits, to_string
-#include <thread>   // for sleep_for, thread
-#include <utility>  // for move
-#include <vector>   // for vector
+#include <chrono>
+#include <functional>
+#include <memory>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
 
 #include <string>
 #include <iostream>
@@ -16,16 +14,18 @@
 namespace fs = std::filesystem;
 
 
-#include "ftxui/component/captured_mouse.hpp"  // for ftxui
-#include "ftxui/component/component.hpp"  // for Checkbox, Renderer, Horizontal, Vertical, Menu, Radiobox, Tab, Toggle
-#include "ftxui/component/component_base.hpp"     // for ComponentBase
-#include "ftxui/component/component_options.hpp"  // for InputOption
-#include "ftxui/component/event.hpp"              // for Event, Event::Custom
-#include "ftxui/component/screen_interactive.hpp"  // for Component, ScreenInteractive
-#include "ftxui/dom/elements.hpp"  // for operator|, color, bgcolor, filler, Element, size, vbox, flex, hbox, graph, separator, EQUAL, WIDTH, hcenter, bold, border, window, HEIGHT, Elements, hflow, flex_grow, frame, gauge, LESS_THAN, spinner, dim, GREATER_THAN
-#include "ftxui/screen/color.hpp"  // for Color, Color::BlueLight, Color::RedLight, Color::Black, Color::Blue, Color::Cyan, Color::CyanLight, Color::GrayDark, Color::GrayLight, Color::Green, Color::GreenLight, Color::Magenta, Color::MagentaLight, Color::Red, Color::White, Color::Yellow, Color::YellowLight, Color::Default
+#include "ftxui/component/captured_mouse.hpp"
+#include "ftxui/component/component.hpp"
+#include "ftxui/component/component_base.hpp"
+#include "ftxui/component/component_options.hpp"
+#include "ftxui/component/event.hpp"
+#include "ftxui/component/screen_interactive.hpp"
+#include "ftxui/dom/elements.hpp"
+#include "ftxui/screen/color.hpp"
 
 #include "../nglogger/nglogger.hpp"
+#include <msgpack.hpp>
+#include <json.hpp>
 
 using namespace ftxui;
 using namespace std;
@@ -33,7 +33,7 @@ using namespace std;
 struct loggeditem
 {
     nglogger::loggedrowheader header;
-    string payload = "";
+    string payload;
     bool checksumok = false;
 };
 
@@ -53,7 +53,6 @@ std::string get_string_from_when(uint64_t when)
     std::chrono::time_point<std::chrono::steady_clock> dt(dur);
     return get_string_from_date(dt);
 }
-
 
 int inner_main(int argc, const char* argv[]) {
     size_t max_items = 1024;
@@ -190,7 +189,6 @@ int inner_main(int argc, const char* argv[]) {
                 logchanged = false;
                 if(selectedlog <0 || selectedlog>= log_entries_titles.size())
                 {
-                    throw runtime_error( "wtf selected log = " + to_string(selectedlog) );
                     logchanged = false;
                     continue;
                 }
@@ -217,13 +215,42 @@ int inner_main(int argc, const char* argv[]) {
                 for(int i = 0; i< max_items; i++)
                 {
                     unique_ptr<loggeditem> item = make_unique<loggeditem>();
-                    bool found = splitter->read_row(item->header, item->payload, item->checksumok);
+                    vector<byte> payload;
+                    bool found = splitter->read_row(item->header, payload, item->checksumok);
                     if(!found)
                         break;
 
                     foundlastime = true;
                     if(item->checksumok)
                     {
+                        if(item->header.type.type == (unsigned)nglogger::loggedrowtypebase::TEXT)
+                        {
+                            item->payload = string( (char*) payload.data(), payload.size() );
+                        }
+                        else
+                        {
+                            item->payload = "binary data";
+
+                            if(item->header.type.usertype == (unsigned)nglogger::loggedrowtypeuserreserved::MESSAGEPACK)
+                            {
+                                string tmsgpack= string( (char*) payload.data(), payload.size() );
+
+                                msgpack::object_handle oh =
+                                        msgpack::unpack(tmsgpack.data(), tmsgpack.size());
+
+                                stringstream str;
+                                str << oh.get();
+
+                                auto j3 = nlohmann::json::parse(str.str());
+
+                                item->payload = j3.dump(2);
+                            }
+                            else
+                            {
+                                item->payload="binary data";
+                            }
+                        }
+
                         string title = get_string_from_when(item->header.when) + ": " + item->payload.substr(0, 50);
                         if(selectedlog == splitindex)
                             log_entries_title.push_back( title );

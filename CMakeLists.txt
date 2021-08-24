@@ -19,5 +19,9 @@ if (POLICY CMP0048)
   cmake_policy(SET CMP0048 NEW)
 endif (POLICY CMP0048)
 
+
+include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/thirdparty/include)
+link_directories(${PROJECT_SOURCE_DIR}/thirdparty/lib)
+
 add_subdirectory(nglogger)
 add_subdirectory(ngloggerui)
