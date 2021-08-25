@@ -23,7 +23,7 @@ class threadlogger
 
 
 public:
-    threadlogger(const string &basefilename,
+    threadlogger(const string &basefilename = "",
                  uint16_t pages = 100,
                  const string &fileending =".nglog",
                  bool append_identifier = true)
@@ -49,6 +49,16 @@ public:
         // TODO where should we check pages so rowindexes cannot overflow...
     }
 
+    void set_basefilename(const string &basefilename)
+    {
+        if(iofile != nullptr )
+        {
+            cerr << "nglogger: cannot set basefile once io file is open - call this function prio any logging!" << endl;
+            throw runtime_error ("nglogger: cannot set basefilename once io file is open - call this function prio any logging!");
+        }
+        this->filename = basefilename;
+    }
+
     void set_identifier(const string &identifier)
     {
         if(iofile != nullptr )
@@ -71,6 +81,9 @@ public:
 
         if(io == nullptr)
         {
+            if(filename.empty())
+                return;
+
             string logfilename = filename;
             if(append_identifier)
             {
