@@ -1,3 +1,5 @@
+project(nglogger_project)
+
 cmake_minimum_required(VERSION 2.8)
 project(nglogger CXX)
 set(CMAKE_VERBOSE_MAKEFILE ON)

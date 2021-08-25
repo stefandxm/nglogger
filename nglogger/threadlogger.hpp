@@ -92,6 +92,15 @@ public:
              status,
              message);
     }
+    void info_msgpack(const string &message)
+    {
+        loggedrowtype type = {(unsigned)loggedrowtypebase::BINARY,(unsigned)loggedrowtypeuserreserved::MESSAGEPACK};
+        loggedrowstatus status = {(unsigned)loggededrowstatusbase::INFO,0};
+        log( type,
+             status,
+             message);
+    }
+
     void warning(const string &message)
     {
         loggedrowtype type = {(unsigned)loggedrowtypebase::TEXT,0};
