@@ -30,5 +30,4 @@ target_link_libraries(ngloggerui
   PRIVATE ftxui::dom
   PRIVATE ftxui::component
   nglogger
-  msgpack11
 )
