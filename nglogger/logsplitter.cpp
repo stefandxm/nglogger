@@ -1,5 +1,5 @@
 #include "logsplitter.hpp"
-
+#include <math.h>
 
 namespace nglogger
 {
