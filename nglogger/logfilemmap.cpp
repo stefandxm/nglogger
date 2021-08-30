@@ -129,7 +129,14 @@ void logfilemmap::write_row( loggedrow &row,
 bool logfilemmap::read_nextrow( loggedrow &rval )
 {
     if(header->currentrowindex < readrows)
+    {
+        readrows = 0;
         return false;
+    }
+    if(header->currentrowindex == readrows)
+    {
+        return false;
+    }
 
     memcpy( &rval, &rows[readrows], loggedrow::size());
     readrows = (readrows+1) % max_items;
