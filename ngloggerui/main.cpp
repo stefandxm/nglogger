@@ -5,6 +5,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <chrono>
 
 #include <string>
 #include <iostream>
@@ -29,6 +30,7 @@ namespace fs = std::filesystem;
 
 using namespace ftxui;
 using namespace std;
+using namespace std::chrono;
 
 struct loggeditem
 {
@@ -67,6 +69,7 @@ int inner_main(int argc, const char* argv[]) {
     int selectedlog=0;
     volatile bool logchanged = false;
     volatile bool logentrychanged = false;
+    volatile bool paused = false;
 
     vector<string> log_entries_title;
     vector<string> log_filenames;
@@ -84,18 +87,15 @@ int inner_main(int argc, const char* argv[]) {
     }
     basepath = argv[1];
 
-    //cout << "Retrieving log files from " << basepath << endl;
     for (const auto & entry : fs::directory_iterator(basepath))
     {
        if(entry.is_directory())
            continue;
 
-        //cout << "Adding " << entry.path().filename() << endl;
         log_filenames.push_back( entry.path().filename());
     }    
-    if(log_filenames.size() == 0ull)
+    if(log_filenames.empty())
     {
-        //cout << "No log files found in " << basepath << endl;
         return 1;
     }
     std::sort(log_filenames.begin(), log_filenames.end());
@@ -103,7 +103,6 @@ int inner_main(int argc, const char* argv[]) {
     for(const string &fn: log_filenames)
     {
         string filename = basepath + "/" + fn;
-        //cout << "Loading " << filename << endl;
         ngfiles.emplace_back(make_unique<nglogger::logfilemmap>(filename));
         ngsplitteds.emplace_back(make_unique<nglogger::logsplitter>(*ngfiles.back()));
         logfiles.push_back(fn);
@@ -117,7 +116,7 @@ int inner_main(int argc, const char* argv[]) {
 
     optionlogs.on_change= [&]{
         {            
-            std::unique_lock<std::mutex> lockguard(entriesmutex);
+            //std::unique_lock<std::mutex> lockguard(entriesmutex);
             logchanged = true;
         }
     };
@@ -125,7 +124,7 @@ int inner_main(int argc, const char* argv[]) {
     MenuOption optionlog;
     optionlog.on_change = [&]{        
         {
-            std::unique_lock<std::mutex> lockguard(entriesmutex);
+            //std::unique_lock<std::mutex> lockguard(entriesmutex);
             logentrychanged = true;
         }
     };
@@ -134,26 +133,39 @@ int inner_main(int argc, const char* argv[]) {
     auto menulog =  Menu(&log_entries_title, &selectedlogentry, &optionlog);
     auto menulogrender = Renderer( menulog,
         [&] {
-                return menulog->Render() | frame | size(HEIGHT,LESS_THAN, 50); //|border;
+                return menulog->Render() | frame;
             }
     );
     auto menulogs = Menu(&logfiles, &selectedlog, &optionlogs);
+    auto menulogsrenderer = Renderer( menulogs,
+        [&]{
+            if(paused)
+            {
+                return vbox(text("paused") |border, menulogs->Render());
+            }
+            return menulogs->Render();
+        }
+    );
 
 
     int left_size = 70;
     int bottom_size = 10;
     auto container = menulogrender;
-    container = ResizableSplitLeft(menulogs , container, &left_size);
+    container = ResizableSplitLeft(menulogsrenderer , container, &left_size);
 
     auto fullogrenderer = Renderer([&]{
         return hflow(paragraph(fulllog));
     }) ;
 
+
     container = ResizableSplitBottom(fullogrenderer, container, &bottom_size);
 
 
-    auto renderer =
-         Renderer(container, [&] { return container->Render() | border; });
+    auto renderer = Renderer(container, [&] {
+        return container->Render() | border;
+    });
+
+
 
     selectedlogentry = 0;
     logchanged=true;
@@ -163,9 +175,17 @@ int inner_main(int argc, const char* argv[]) {
     string errormsg = "";
 
     std::thread refresh_ui([&] {
+        std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> lastupdate = steady_clock::now();
         bool foundlastime = false;
+        bool refreshNeeded = false;
         while (refresh_ui_continue)
         {
+            if(paused)
+            {
+                std::this_thread::sleep_for(100ms);
+                continue;
+            }
+
             using namespace std::chrono_literals;
             if(!foundlastime)
             {
@@ -183,6 +203,7 @@ int inner_main(int argc, const char* argv[]) {
 
             if(logchanged)
             {
+                refreshNeeded = true;
                 selectedlogentry=0;
                 log_entries_title.clear();
 
@@ -216,7 +237,7 @@ int inner_main(int argc, const char* argv[]) {
                 {
                     unique_ptr<loggeditem> item = make_unique<loggeditem>();
                     vector<byte> payload;
-                    bool found = splitter->read_row(item->header, payload, item->checksumok);
+                    bool found = splitter->read_row(item->header, payload, item->checksumok,0);
                     if(!found)
                         break;
 
@@ -262,16 +283,19 @@ int inner_main(int argc, const char* argv[]) {
                             }
                         }
 
-                        string title = get_string_from_when(item->header.when) + ": " + item->payload.substr(0, 50);
+                        string title = get_string_from_when(item->header.when) + ": " + item->payload.substr(0, 80);
                         if(selectedlog == splitindex)
                             log_entries_title.push_back( title );
 
-                        logfiles[splitindex] = log_filenames[splitindex] +  " - " + item->payload.substr(0, 50);
+                        logfiles[splitindex] = log_filenames[splitindex] +  " - " + item->payload.substr(0, 80);
                         log_entries_titles[splitindex].push_back(title);
                         log_entries_full[splitindex].push_back(move(item));
                     }
                 }
             }
+            if(foundlastime)
+                refreshNeeded = true;
+
             if(log_entries_title.size() > max_items)
             {
                 size_t removeitems=(log_entries_title.size()-max_items);
@@ -311,10 +335,38 @@ int inner_main(int argc, const char* argv[]) {
             {
                 fulllog="??";
             }
-            screen.PostEvent(Event::Custom);
+            if(refreshNeeded)
+            {
+                std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> now = steady_clock::now();
+                if( duration_cast<milliseconds>(now-lastupdate).count()   > 500 )
+                {
+                    refreshNeeded = false;
+                    screen.PostEvent(Event::Custom);
+                }
+            }
         }
     });
 
+    renderer |=
+        CatchEvent( [&](Event event) {
+            if(!event.is_character())
+            {
+                return false;
+            }
+
+            if(event == Event::Character(' '))
+            {
+                paused = !paused;
+                screen.PostEvent(Event::Custom);
+                return true;
+            }
+            if(event == Event::Character('q'))
+            {
+                screen.ExitLoopClosure()();
+                return true;
+            }
+            return false;
+        });
     screen.Loop(renderer);
     refresh_ui_continue = false;
     refresh_ui.join();

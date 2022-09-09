@@ -80,9 +80,10 @@ bool logsplitter::read_row(loggedrowheader &header,
 
     for(int i = 1; i < header.parts; i++ )
     {
-        while(!io.read_nextrow(row) && (nr_retries--) > 1)
+        while(!io.read_nextrow(row) && nr_retries > 1)
         {
             std::this_thread::sleep_for( std::chrono::milliseconds(waitms) );
+            nr_retries--;
         }
         if(nr_retries == 0)
         {
