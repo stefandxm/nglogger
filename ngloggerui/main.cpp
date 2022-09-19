@@ -59,6 +59,8 @@ std::string get_string_from_when(uint64_t when)
 int inner_main(int argc, const char* argv[]) {
     size_t max_items = 1024;
     string fulllog = "";
+    string fulllog_renderer = ""; // used in renderer
+    bool fulllog_dirty = false;
 
     std::mutex entriesmutex;
     vector<unique_ptr<nglogger::logfilemmap>> ngfiles;
@@ -72,8 +74,12 @@ int inner_main(int argc, const char* argv[]) {
     volatile bool paused = false;
 
     vector<string> log_entries_title;
+    vector<string> log_entries_title_renderer; // used in renderer - menu
+    bool log_entries_title_dirty = false;
     vector<string> log_filenames;
     vector<string> logfiles;
+    vector<string> logfiles_renderer; // used in renderer - menu
+    bool logfiles_dirty = false;
 
     vector< vector<string> > log_entries_titles;
     vector< vector<unique_ptr<loggeditem>>> log_entries_full;
@@ -130,13 +136,14 @@ int inner_main(int argc, const char* argv[]) {
     };
 
 
-    auto menulog =  Menu(&log_entries_title, &selectedlogentry, &optionlog);
+    auto menulog =  Menu(&log_entries_title_renderer, &selectedlogentry, &optionlog);
     auto menulogrender = Renderer( menulog,
-        [&] {
+        [&] {                
                 return menulog->Render() | frame;
             }
     );
-    auto menulogs = Menu(&logfiles, &selectedlog, &optionlogs);
+
+    auto menulogs = Menu(&logfiles_renderer, &selectedlog, &optionlogs);
     auto menulogsrenderer = Renderer( menulogs,
         [&]{
             if(paused)
@@ -154,7 +161,7 @@ int inner_main(int argc, const char* argv[]) {
     container = ResizableSplitLeft(menulogsrenderer , container, &left_size);
 
     auto fullogrenderer = Renderer([&]{
-        return hflow(paragraph(fulllog));
+        return hflow(paragraph(fulllog_renderer));
     }) ;
 
 
@@ -203,9 +210,12 @@ int inner_main(int argc, const char* argv[]) {
 
             if(logchanged)
             {
+
                 refreshNeeded = true;
-                selectedlogentry=0;
-                log_entries_title.clear();
+                //selectedlogentry=0;
+                //screen.PostEvent(Event::Custom);
+                //std::this_thread::sleep_for(50ms);
+                //log_entries_title.clear();
 
                 logchanged = false;
                 if(selectedlog <0 || selectedlog>= log_entries_titles.size())
@@ -215,10 +225,16 @@ int inner_main(int argc, const char* argv[]) {
                 }
 
                 log_entries_title.clear();
-                for(auto &t : log_entries_titles[selectedlog] )
+                if(selectedlog < log_entries_titles.size())
                 {
-                    log_entries_title.push_back(t);
+                    for(auto &t : log_entries_titles[selectedlog] )
+                    {
+                        log_entries_title.push_back(t);
+                    }
+                    log_entries_title_dirty = true;
                 }
+
+                lastentryselected = true;
             }
             else
             {
@@ -256,25 +272,31 @@ int inner_main(int argc, const char* argv[]) {
                             {
                                 string tmsgpack= string( (char*) payload.data(), payload.size() );
 
-                                msgpack::object_handle oh =
-                                        msgpack::unpack(tmsgpack.data(), tmsgpack.size());
+                                string sermsgpack = "";
 
-                                stringstream str;
-                                str << oh.get();
-                                string sermsgpack = str.str();
 
                                 try
                                 {
+                                    msgpack::object_handle oh =
+                                            msgpack::unpack(tmsgpack.data(), tmsgpack.size());
+
+                                    stringstream str;
+                                    str << oh.get();
+                                    sermsgpack = str.str();
+
                                     auto j3 = nlohmann::json::parse(sermsgpack);
                                     item->payload = j3.dump(1);
                                 }
-                                //catch(exception &ex)
-                                //{
-                                 //   item->payload = sermsgpack //string("EXCEPTION PARSING: ") + ex.what();
-                                //}
+                                catch(exception &ex)
+                                {
+                                   if(sermsgpack.empty())
+                                       item->payload = string("EXCEPTION PARSING: ") + ex.what();
+                                   else
+                                       item->payload = sermsgpack;
+                                }
                                 catch(...)
                                 {
-                                    item->payload = sermsgpack;
+                                    item->payload = sermsgpack.empty() ? "broken messagepack" : sermsgpack;
                                 }
                             }
                             else
@@ -284,10 +306,15 @@ int inner_main(int argc, const char* argv[]) {
                         }
 
                         string title = get_string_from_when(item->header.when) + ": " + item->payload.substr(0, 80);
+
                         if(selectedlog == splitindex)
+                        {
                             log_entries_title.push_back( title );
+                            log_entries_title_dirty = true;
+                        }
 
                         logfiles[splitindex] = log_filenames[splitindex] +  " - " + item->payload.substr(0, 80);
+                        logfiles_dirty = true;
                         log_entries_titles[splitindex].push_back(title);
                         log_entries_full[splitindex].push_back(move(item));
                     }
@@ -301,6 +328,7 @@ int inner_main(int argc, const char* argv[]) {
                 size_t removeitems=(log_entries_title.size()-max_items);
                 log_entries_title.erase(log_entries_title.begin(), log_entries_title.begin()+ removeitems);
 
+                log_entries_title_dirty = true;
 
                 if(selectedlogentry>(int)removeitems)
                     selectedlogentry -= removeitems;
@@ -330,11 +358,35 @@ int inner_main(int argc, const char* argv[]) {
                 auto &item = log_entries_full[selectedlog][selectedlogentry];
                 fulllog = get_string_from_when(item->header.when) + " \n ";
                 fulllog += item->payload;
+                fulllog_dirty = true;
             }
             else
             {
                 fulllog="??";
+                fulllog_dirty = true;
             }
+
+            if(fulllog_dirty || log_entries_title_dirty || logfiles_dirty)
+            {
+                screen.Post( [&]{
+                    if(fulllog_dirty)
+                    {
+                        fulllog_renderer = fulllog;
+                        fulllog_dirty = false;
+                    }
+                    if(log_entries_title_dirty)
+                    {
+                        log_entries_title_renderer = log_entries_title;
+                        log_entries_title_dirty = false;
+                    }
+                    if(logfiles_dirty)
+                    {
+                        logfiles_renderer = logfiles;
+                        logfiles_dirty = false;
+                    }
+                });
+            }
+
             if(refreshNeeded)
             {
                 std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> now = steady_clock::now();
