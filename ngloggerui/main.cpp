@@ -196,11 +196,11 @@ int inner_main(int argc, const char* argv[]) {
             using namespace std::chrono_literals;
             if(!foundlastime)
             {
-                std::this_thread::sleep_for(200ms);
+                std::this_thread::sleep_for(500ms);
             }
             else
             {
-                std::this_thread::sleep_for(50ms);
+                std::this_thread::sleep_for(200ms);
             }
 
             std::unique_lock<std::mutex> lockguard(entriesmutex);
@@ -406,6 +406,12 @@ int inner_main(int argc, const char* argv[]) {
                 return false;
             }
 
+            if(event == Event::Character('c'))
+            {
+                string curr = fulllog_renderer;
+                string command = "echo \"" + curr + "\" | xclip -sel clip";
+                system(command.c_str());
+            }
             if(event == Event::Character(' '))
             {
                 paused = !paused;
