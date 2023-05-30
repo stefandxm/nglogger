@@ -128,12 +128,12 @@ void logfilemmap::write_row( loggedrow &row,
 
 bool logfilemmap::read_nextrow( loggedrow &rval )
 {
-    if(header->currentrowindex < readrows)
+    if(header->currentrowindex < (min(readrows,(uint16_t)1)-1))
     {
         readrows = 0;
-        return false;
+        //return false;
     }
-    if(header->currentrowindex == readrows)
+    else if(header->currentrowindex < readrows)
     {
         return false;
     }

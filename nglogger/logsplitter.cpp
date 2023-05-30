@@ -80,7 +80,7 @@ bool logsplitter::read_row(loggedrowheader &header,
 
     for(int i = 1; i < header.parts; i++ )
     {
-        while(!io.read_nextrow(row) && nr_retries > 1)
+        while(!io.read_nextrow(row) && nr_retries > 0)
         {
             std::this_thread::sleep_for( std::chrono::milliseconds(waitms) );
             nr_retries--;
@@ -93,8 +93,7 @@ bool logsplitter::read_row(loggedrowheader &header,
 
         if(row.header.checksum != calculate_hash(row))
             checksumok = false;
-
-        copy(row.payload, row.payload + row.header.length, back_inserter(payload));
+        copy(row.payload, row.payload + row.header.length, back_inserter(payload));        
     }
 
     row.header.length = static_cast<uint32_t> (payload.size());
