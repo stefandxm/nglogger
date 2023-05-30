@@ -270,22 +270,45 @@ int inner_main(int argc, const char* argv[]) {
 
                             if(item->header.type.usertype == (unsigned)nglogger::loggedrowtypeuserreserved::MESSAGEPACK)
                             {
-                                string tmsgpack= string( (char*) payload.data(), payload.size() );
+                                //string tmsgpack= string( (char*) payload.data(), payload.size() );
 
                                 string sermsgpack = "";
-
+                                size_t payloadsize = payload.size();
 
                                 try
                                 {
+
                                     msgpack::object_handle oh =
-                                            msgpack::unpack(tmsgpack.data(), tmsgpack.size());
+                                            msgpack::unpack((const char*)payload.data(), payload.size());
 
                                     stringstream str;
-                                    str << oh.get();
-                                    sermsgpack = str.str();
+                                    sermsgpack = "msgpack - not parsed";
+                                    try
+                                    {
+                                        str << oh.get();
+                                    }
+                                    catch(...)
+                                    {
+                                        throw;
+                                    }
+                                    try
+                                    {
+                                        sermsgpack = str.str();
+                                    }
+                                    catch(...)
+                                    {
+                                        throw;
+                                    }
 
-                                    auto j3 = nlohmann::json::parse(sermsgpack);
-                                    item->payload = j3.dump(1);
+                                    try
+                                    {
+                                        auto j3 = nlohmann::json::parse(sermsgpack);
+                                        item->payload = j3.dump(1);
+                                    }
+                                    catch(...)
+                                    {
+                                        item->payload = sermsgpack;
+                                    }
                                 }
                                 catch(exception &ex)
                                 {

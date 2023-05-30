@@ -107,12 +107,12 @@ void logfilemmap::write_row( loggedrow &row,
     {
         throw runtime_error("cannot write when consuming");
     }
-    uint16_t n_rowid = header->currentrowindex+1;
+    uint32_t n_rowid = (uint32_t)header->currentrowindex+1;
     uint16_t n_rowindex = n_rowid % max_items;
 
     if(autorowid)
     {
-        row.header.rowid = n_rowid;
+        row.header.rowid = n_rowindex;
     }
 
     if(calculate_checksum)

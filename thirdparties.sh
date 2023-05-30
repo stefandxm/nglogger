@@ -1,7 +1,7 @@
 cd thirdparty
 
 cd include
-wget https://github.com/nlohmann/json/releases/download/v3.10.0/json.hpp
+wget https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
 cd ..
 
 git clone https://github.com/msgpack/msgpack-c.git

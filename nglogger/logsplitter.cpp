@@ -94,7 +94,6 @@ bool logsplitter::read_row(loggedrowheader &header,
         if(row.header.checksum != calculate_hash(row))
             checksumok = false;
 
-        payload.reserve(payload.size() + row.header.length);
         copy(row.payload, row.payload + row.header.length, back_inserter(payload));
     }
 
