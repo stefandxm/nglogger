@@ -8,8 +8,8 @@ void logfilemmap::map(bool truncate, uint16_t requested_pages)
 {
     pagesize = sysconf(_SC_PAGE_SIZE);
 
-    off64_t size_bytes = lseek64(fd, 0, SEEK_END);
-    lseek64(fd, 0, SEEK_SET);
+    off64_t size_bytes = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
 
     // Start off with one page
     // Read header
@@ -28,7 +28,7 @@ void logfilemmap::map(bool truncate, uint16_t requested_pages)
             pages = requested_pages;
         }
 
-        if( truncate && ftruncate64(fd, size_bytes) == -1)
+        if( truncate && ftruncate(fd, size_bytes) == -1)
         {
             throw std::runtime_error("ftruncate failed for " + Filename);
         }
