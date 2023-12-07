@@ -41,12 +41,16 @@ struct loggeditem
 
 std::string get_string_from_date(std::chrono::steady_clock::time_point time)
 {
+#ifdef __linux__
     std::time_t time_c = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()
                                                  + (time - std::chrono::steady_clock::now()));
     std::tm time_tm = *std::localtime(&time_c);
     char buff[255];
     strftime(buff, sizeof(buff), "%Y-%m-%d %H:%M:%S", &time_tm);
     return std::string(buff);
+#else
+	return "buggy shit";
+#endif
 }
 
 std::string get_string_from_when(uint64_t when)
