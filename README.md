@@ -28,7 +28,7 @@ Use xlog.info / xlog.warning / xlog.error
 
 See threadlogger.hpp for more information
 
-# Ng Logger
+# ngloggerui
 Execute nglogger with parameter of folder of logging
 ngloggerui <path>
 
