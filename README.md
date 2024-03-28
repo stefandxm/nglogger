@@ -23,8 +23,14 @@ In each init of your threads run this; before you log anything
 
 
 ## Logging
+
 Use xlog.info / xlog.warning / xlog.error
+
 See threadlogger.hpp for more information
+
+# Ng Logger
+Execute nglogger with parameter of folder of logging
+ngloggerui <path>
 
 # Dependencies
 Nothing for library.
