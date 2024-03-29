@@ -8,7 +8,9 @@ Designed to log rather fast and is probably not what you are looking for.
 We encourage you to use it per-thread to make ngloggerui work better.
 
 ## init of thread
+
 ### Create this object
+
 Header
 
 extern thread_local nglogger::threadlogger xlog;
@@ -16,10 +18,9 @@ extern thread_local nglogger::threadlogger xlog;
 Source code 
 
 thread_local nglogger::threadlogger xlog;
-
-In each init of your threads run this; before you log anything
-	xlog.set_basefilename ("your base path for logging here"); // this is where you want to point ng logger ui
-	xlog.set_identifier ("your thread id here");
+// this is where you want to point ng logger ui
+xlog.set_basefilename ("your base path for logging here");
+xlog.set_identifier ("your thread id here");
 
 
 ## Logging
@@ -29,6 +30,7 @@ Use xlog.info / xlog.warning / xlog.error
 See threadlogger.hpp for more information
 
 # ngloggerui
+
 Execute ngloggerui with parameter of folder of logging
 ngloggerui <path>
 
