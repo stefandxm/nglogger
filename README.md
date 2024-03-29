@@ -7,7 +7,7 @@ Designed to log rather fast and is probably not what you are looking for.
 
 We encourage you to use it per-thread to make ngloggerui work better.
 
-## init of thread
+## Init of thread
 
 ### Create this object
 
