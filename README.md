@@ -18,8 +18,10 @@ extern thread_local nglogger::threadlogger xlog;
 Source code 
 
 thread_local nglogger::threadlogger xlog;
+
 // this is where you want to point ng logger ui
 xlog.set_basefilename ("your base path for logging here");
+
 xlog.set_identifier ("your thread id here");
 
 
